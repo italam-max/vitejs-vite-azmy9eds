@@ -1,169 +1,118 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const xmlrpc = require('xmlrpc');
-const nodemailer = require('nodemailer');
-const PdfPrinter = require('pdfmake');
-const axios = require('axios'); // <--- Nuevo: Para conectar con Whapi
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import nodemailer from 'nodemailer';
+import PdfPrinter from 'pdfmake';
+import axios from 'axios';
 
 const app = express();
 app.use(cors());
-// Aumentamos el límite del body porque enviaremos PDFs en Base64
-app.use(express.json({ limit: '50mb' })); 
+app.use(express.json({ limit: '50mb' }));
 
-// --- CONFIGURACIONES ---
-
-const odooConfig = {
-    url: new URL(process.env.ODOO_URL || 'http://localhost'), // Fallback simple
-    db: process.env.ODOO_DB,
-    username: process.env.ODOO_USERNAME,
-    password: process.env.ODOO_PASSWORD
-};
-
+// --- CONFIGURACIÓN PDF ---
 const fonts = {
-    Roboto: {
-        normal: 'Helvetica',
-        bold: 'Helvetica-Bold',
-        italics: 'Helvetica-Oblique',
-        bolditalics: 'Helvetica-BoldOblique'
-    }
+  Roboto: {
+    normal: 'Helvetica',
+    bold: 'Helvetica-Bold',
+    italics: 'Helvetica-Oblique',
+    bolditalics: 'Helvetica-BoldOblique'
+  }
 };
 const printer = new PdfPrinter(fonts);
 
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT,
-    secure: false,
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-    }
-});
+// --- GENERADOR DE PDF ---
+const generatePdfBinary = (formData) => {
+  return new Promise((resolve, reject) => {
+    const docDefinition = {
+      content: [
+        { text: 'COTIZACIÓN ALAMEX ELEVADORES', style: 'header', alignment: 'center', margin: [0, 0, 0, 20] },
+        { text: `Cliente: ${formData.clientName}`, margin: [0, 5] },
+        { text: `Proyecto: ${formData.projectRef}`, margin: [0, 5] },
+        { text: `Fecha: ${formData.projectDate}`, margin: [0, 20] },
+        {
+          table: {
+            widths: ['*', 'auto'],
+            body: [
+              [{ text: 'Descripción', bold: true }, { text: 'Valor', bold: true }],
+              ['Modelo', formData.model],
+              ['Capacidad', `${formData.capacity} kg`],
+              ['Paradas', formData.stops.toString()],
+              ['Velocidad', `${formData.speed} m/s`],
+            ]
+          }
+        },
+        { text: 'Este documento es una propuesta preliminar generada automáticamente.', margin: [0, 30], italics: true, fontSize: 10 }
+      ],
+      styles: {
+        header: { fontSize: 18, bold: true }
+      }
+    };
 
-// --- FUNCIONES HELPER ---
-
-const connectToOdoo = () => {
-    return new Promise((resolve, reject) => {
-        const common = xmlrpc.createSecureClient({
-            host: odooConfig.url.hostname,
-            port: odooConfig.url.port || 443,
-            path: '/xmlrpc/2/common'
-        });
-        common.methodCall('authenticate', [odooConfig.db, odooConfig.username, odooConfig.password, {}], (error, uid) => {
-            if (error) reject(error);
-            else resolve(uid);
-        });
-    });
+    const pdfDoc = printer.createPdfKitDocument(docDefinition);
+    let chunks = [];
+    pdfDoc.on('data', (chunk) => chunks.push(chunk));
+    pdfDoc.on('end', () => resolve(Buffer.concat(chunks)));
+    pdfDoc.end();
+  });
 };
 
-const generatePdfBinary = (formData, materialsList) => {
-    return new Promise((resolve, reject) => {
-        // ... (Tu definición del PDF sigue igual, la resumo aquí) ...
-        const docDefinition = {
-            content: [
-                { text: 'COTIZACIÓN ALAMEX ELEVADORES', style: 'header' },
-                { text: `Cliente: ${formData.clientName}\nReferencia: ${formData.projectRef}`, margin: [0, 10] },
-                { text: 'Detalles:', style: 'subheader' },
-                { ul: [ `Modelo: ${formData.model}`, `Paradas: ${formData.stops}` ] },
-                { text: 'Este documento es una propuesta preliminar.', margin: [0, 20], italics: true }
-            ],
-            styles: {
-                header: { fontSize: 18, bold: true },
-                subheader: { fontSize: 14, bold: true, margin: [0, 10, 0, 5] }
-            }
-        };
-
-        const pdfDoc = printer.createPdfKitDocument(docDefinition);
-        let chunks = [];
-        pdfDoc.on('data', (chunk) => chunks.push(chunk));
-        pdfDoc.on('end', () => resolve(Buffer.concat(chunks)));
-        pdfDoc.end();
-    });
-};
-
-// Función para limpiar el número de teléfono para Whapi
-const formatPhoneForWhapi = (phone) => {
-    // Eliminar caracteres no numéricos
-    let clean = phone.replace(/\D/g, '');
-    // Whapi espera el número con código de país (ej. 52155...)
-    // Si el número no tiene código de país, asume México (52) o el que necesites
-    if (clean.length === 10) { 
-        clean = '52' + clean; // Ajusta esto según tu país
-    }
-    return clean;
-};
-
-// --- ENDPOINTS ---
-
-// Crear Orden en Odoo (Sin cambios mayores)
-app.post('/api/odoo/create-order', async (req, res) => {
-    // ... (Mismo código de Odoo de la respuesta anterior) ...
-    res.json({ success: true, message: 'Simulación Odoo OK' }); 
-});
-
-// ENVIAR PDF (EMAIL O WHAPI)
+// --- ENDPOINT ENVÍO WHATSAPP (WHAPI) ---
 app.post('/api/share/send', async (req, res) => {
-    const { formData, materialsList, method } = req.body;
+  const { formData, method } = req.body;
 
-    try {
-        console.log(`Generando PDF para ${method}...`);
-        const pdfBuffer = await generatePdfBinary(formData, materialsList);
+  try {
+    const pdfBuffer = await generatePdfBinary(formData);
 
-        if (method === 'email') {
-            await transporter.sendMail({
-                from: process.env.SMTP_USER,
-                to: formData.clientEmail,
-                subject: `Cotización Alamex - ${formData.projectRef}`,
-                text: 'Adjunto encontrará su propuesta.',
-                attachments: [{
-                    filename: `Cotizacion_${formData.projectRef}.pdf`,
-                    content: pdfBuffer
-                }]
-            });
-            return res.json({ success: true, message: 'Correo enviado correctamente' });
+    if (method === 'whatsapp') {
+      // 1. Formatear teléfono (Asegúrate que tenga código de país, ej 52 para MX)
+      let phone = formData.clientPhone.replace(/\D/g, '');
+      if (phone.length === 10) phone = '52' + phone; 
+
+      // 2. Convertir PDF a Base64
+      const pdfBase64 = pdfBuffer.toString('base64');
+      
+      // 3. Enviar a Whapi
+      const whapiResponse = await axios.post(
+        `${process.env.WHAPI_URL}/messages/document`,
+        {
+          to: `${phone}@s.whatsapp.net`,
+          media: `data:application/pdf;base64,${pdfBase64}`,
+          filename: `Cotizacion_${formData.projectRef}.pdf`,
+          caption: `Hola ${formData.clientName}, adjunto encontrarás la cotización para el proyecto *${formData.projectRef}*. \n\nQuedo atento a tus comentarios.`
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${process.env.WHAPI_TOKEN}`,
+            'Content-Type': 'application/json'
+          }
         }
+      );
 
-        if (method === 'whatsapp') {
-            // 1. Preparar datos para Whapi
-            const cleanPhone = formatPhoneForWhapi(formData.clientPhone);
-            
-            // Convertir PDF a Base64 para enviarlo en el cuerpo del JSON
-            const pdfBase64 = pdfBuffer.toString('base64');
-            const mediaData = `data:application/pdf;base64,${pdfBase64}`;
-
-            // 2. Enviar petición a Whapi
-            // Usamos el endpoint /messages/document
-            const whapiResponse = await axios.post(
-                `${process.env.WHAPI_URL}/messages/document`,
-                {
-                    to: `${cleanPhone}@s.whatsapp.net`, // Formato de Whapi para números
-                    media: mediaData,
-                    filename: `Cotizacion_${formData.projectRef}.pdf`,
-                    caption: `Hola ${formData.clientName}, aquí tienes la cotización solicitada para el proyecto *${formData.projectRef}*.`
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${process.env.WHAPI_TOKEN}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
-
-            console.log('Whapi Response:', whapiResponse.data);
-            return res.json({ success: true, message: 'WhatsApp enviado por Whapi' });
+      // Devolvemos datos para el chat simulado en el frontend
+      return res.json({ 
+        success: true, 
+        message: 'Enviado por Whapi',
+        chatData: {
+            id: Date.now(), // ID temporal
+            name: formData.clientName,
+            lastMsg: 'Documento enviado: Cotización.pdf',
+            time: 'Ahora',
+            history: [
+                { sender: 'me', text: `Hola ${formData.clientName}, adjunto encontrarás la cotización para el proyecto ${formData.projectRef}.`, timestamp: Date.now() }
+            ]
         }
-
-    } catch (error) {
-        console.error('Error enviando:', error.response ? error.response.data : error.message);
-        res.status(500).json({ 
-            success: false, 
-            error: error.message, 
-            details: error.response ? error.response.data : null 
-        });
+      });
     }
+
+    res.status(400).json({ success: false, message: 'Método no soportado' });
+
+  } catch (error) {
+    console.error('Error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-    console.log(`Backend corriendo en puerto ${PORT}`);
+  console.log(`Servidor corriendo en puerto ${PORT}`);
 });
