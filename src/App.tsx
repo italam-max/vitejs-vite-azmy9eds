@@ -6,7 +6,7 @@ import {
   Smartphone, Phone, Mail, Send, X, Shield, Key, Database,
   UserPlus, Globe, Package, WifiOff, Menu, ArrowLeft, BarChart2, TrendingUp,
   Zap, Clock, ShoppingCart, Calendar, Info, RefreshCcw, DollarSign, Printer, Download,
-  Share2, CheckSquare, AlertTriangle, ThumbsUp, ThumbsDown
+  Share2, CheckSquare, AlertTriangle, ThumbsUp, ThumbsDown, Truck, MapPin, Anchor, Hammer, Briefcase
 } from 'lucide-react';
 
 // --- TIPO DE DATOS & INTERFACES ---
@@ -129,6 +129,159 @@ const CABIN_MODELS = [
 const FLOOR_FINISHES = ['Granito', 'PVC', 'Aluminio', 'Metal', '3D Design'];
 const NORMS = ['EN 81-1', 'EN 81-2', 'NOM-053', 'ASME A17.1'];
 const DISPLAYS = ['Display Inteligente', 'Touch', 'LCD Standard', 'Matriz de Puntos'];
+
+// --- DATOS DE COSTOS LOGÍSTICA (DESCARGA) POR CIUDAD ---
+const CITY_COSTS: Record<string, { transport: number; perDiem: number }> = {
+  'ACAPULCO': { transport: 22100, perDiem: 15000 },
+  'AGUASCALIENTES': { transport: 28900, perDiem: 15000 },
+  'BAJA CALIFORNIA SUR': { transport: 69900, perDiem: 35000 },
+  'CAMPECHE': { transport: 61300, perDiem: 20000 },
+  'CANCUN': { transport: 86700, perDiem: 35000 },
+  'CDMX': { transport: 0, perDiem: 0 },
+  'CD. JUAREZ': { transport: 132400, perDiem: 35000 },
+  'CD. VICTORIA': { transport: 42700, perDiem: 15000 },
+  'CELAYA': { transport: 12800, perDiem: 15000 },
+  'CHIHUAHUA': { transport: 85600, perDiem: 25000 },
+  'COLIMA': { transport: 40700, perDiem: 25000 },
+  'CUERNAVACA': { transport: 8400, perDiem: 5000 },
+  'CULIACAN': { transport: 64000, perDiem: 30000 },
+  'DURANGO': { transport: 57100, perDiem: 15000 },
+  'EDO MEX (zona metropolitana)': { transport: 0, perDiem: 0 },
+  'GUADALAJARA': { transport: 35800, perDiem: 15000 },
+  'GUANAJUATO': { transport: 22000, perDiem: 15000 },
+  'HERMOSILLO': { transport: 116100, perDiem: 35000 },
+  'IXTAPA ZIHUATANEJO': { transport: 39200, perDiem: 15000 },
+  'LEON': { transport: 22000, perDiem: 15000 },
+  'LOS CABOS': { transport: 69900, perDiem: 35000 },
+  'MAZATLAN': { transport: 58400, perDiem: 20000 },
+  'MERIDA': { transport: 86700, perDiem: 35000 },
+  'MEXICALLI': { transport: 165600, perDiem: 35000 },
+  'MICHOACAN': { transport: 18600, perDiem: 15000 },
+  'MONTERREY': { transport: 54400, perDiem: 20000 },
+  'MORELIA': { transport: 18600, perDiem: 15000 },
+  'NAYARIT': { transport: 56500, perDiem: 15000 },
+  'NUEVO LAREDO': { transport: 66500, perDiem: 35000 },
+  'OAXACA': { transport: 25500, perDiem: 15000 },
+  'PACHUCA': { transport: 8400, perDiem: 5000 },
+  'PUEBLA': { transport: 8300, perDiem: 5000 },
+  'PUERTO VALLARTA': { transport: 56500, perDiem: 15000 },
+  'QUERETARO': { transport: 12800, perDiem: 15000 },
+  'REYNOSA': { transport: 59400, perDiem: 25000 },
+  'SALTILLO': { transport: 42700, perDiem: 25000 },
+  'SAN JOSÉ DEL CABO': { transport: 69900, perDiem: 35000 },
+  'SAN LUIS POTOSI': { transport: 25500, perDiem: 15000 },
+  'TABASCO': { transport: 45100, perDiem: 19950 },
+  'TEQUILA': { transport: 39200, perDiem: 15000 },
+  'TEZIUTLAN': { transport: 8300, perDiem: 5000 },
+  'TIJUANA': { transport: 169300, perDiem: 35000 },
+  'TOLUCA': { transport: 8300, perDiem: 5000 },
+  'TORREON': { transport: 57100, perDiem: 15000 },
+  'TULUM': { transport: 86700, perDiem: 35000 },
+  'TUXTLA GUTIERREZ': { transport: 45100, perDiem: 19950 },
+  'VERACRUZ': { transport: 18600, perDiem: 15000 },
+  'ZACATECAS': { transport: 39300, perDiem: 15000 },
+};
+
+// --- DATOS DE VIÁTICOS Y TRASLADO PARA MONTAJE ---
+const INSTALLATION_TRAVEL_DATA: Record<string, { perDiemPersonDay: number; transportCouple: number; toolTransport: number }> = {
+  'ACAPULCO': { perDiemPersonDay: 850, transportCouple: 5500, toolTransport: 8500 },
+  'AGUASCALIENTES': { perDiemPersonDay: 850, transportCouple: 5500, toolTransport: 8500 },
+  'BAJA CALIFORNIA SUR': { perDiemPersonDay: 850, transportCouple: 22000, toolTransport: 27000 },
+  'CAMPECHE': { perDiemPersonDay: 1100, transportCouple: 12100, toolTransport: 16000 },
+  'CANCUN': { perDiemPersonDay: 1100, transportCouple: 19800, toolTransport: 5500 },
+  'CDMX': { perDiemPersonDay: 0, transportCouple: 0, toolTransport: 0 },
+  'CD. JUAREZ': { perDiemPersonDay: 1050, transportCouple: 22000, toolTransport: 26000 },
+  'CD. VICTORIA': { perDiemPersonDay: 950, transportCouple: 7700, toolTransport: 10000 },
+  'CELAYA': { perDiemPersonDay: 1000, transportCouple: 5500, toolTransport: 8500 },
+  'CHIHUAHUA': { perDiemPersonDay: 1050, transportCouple: 22000, toolTransport: 26000 },
+  'COLIMA': { perDiemPersonDay: 900, transportCouple: 2500, toolTransport: 10000 },
+  'CUERNAVACA': { perDiemPersonDay: 800, transportCouple: 1800, toolTransport: 4000 },
+  'CULIACAN': { perDiemPersonDay: 1200, transportCouple: 15400, toolTransport: 26000 },
+  'DURANGO': { perDiemPersonDay: 1050, transportCouple: 11000, toolTransport: 26000 },
+  'EDO MEX (zona metropolitana)': { perDiemPersonDay: 0, transportCouple: 0, toolTransport: 0 },
+  'GUADALAJARA': { perDiemPersonDay: 750, transportCouple: 15000, toolTransport: 15000 },
+  'GUANAJUATO': { perDiemPersonDay: 1000, transportCouple: 5500, toolTransport: 8500 },
+  'HERMOSILLO': { perDiemPersonDay: 1050, transportCouple: 22000, toolTransport: 26000 },
+  'IXTAPA ZIHUATANEJO': { perDiemPersonDay: 900, transportCouple: 6000, toolTransport: 9000 },
+  'LEON': { perDiemPersonDay: 900, transportCouple: 3300, toolTransport: 8500 },
+  'LOS CABOS': { perDiemPersonDay: 1200, transportCouple: 25520, toolTransport: 29000 },
+  'MAZATLAN': { perDiemPersonDay: 1100, transportCouple: 17490, toolTransport: 15000 },
+  'MERIDA': { perDiemPersonDay: 1100, transportCouple: 12100, toolTransport: 16000 },
+  'MEXICALLI': { perDiemPersonDay: 1100, transportCouple: 18700, toolTransport: 29000 },
+  'MICHOACAN': { perDiemPersonDay: 900, transportCouple: 1650, toolTransport: 8500 },
+  'MONTERREY': { perDiemPersonDay: 950, transportCouple: 7700, toolTransport: 10000 },
+  'MORELIA': { perDiemPersonDay: 900, transportCouple: 1650, toolTransport: 8500 },
+  'NAYARIT': { perDiemPersonDay: 1100, transportCouple: 8800, toolTransport: 11000 },
+  'NUEVO LAREDO': { perDiemPersonDay: 1100, transportCouple: 18700, toolTransport: 29000 },
+  'OAXACA': { perDiemPersonDay: 1000, transportCouple: 6600, toolTransport: 10000 },
+  'PACHUCA': { perDiemPersonDay: 750, transportCouple: 1650, toolTransport: 4000 },
+  'PUEBLA': { perDiemPersonDay: 850, transportCouple: 1540, toolTransport: 3000 },
+  'PUERTO VALLARTA': { perDiemPersonDay: 1100, transportCouple: 11000, toolTransport: 15000 },
+  'QUERETARO': { perDiemPersonDay: 800, transportCouple: 2750, toolTransport: 5500 },
+  'REYNOSA': { perDiemPersonDay: 950, transportCouple: 7700, toolTransport: 10000 },
+  'SALTILLO': { perDiemPersonDay: 850, transportCouple: 1100, toolTransport: 15000 },
+  'SAN JOSÉ DEL CABO': { perDiemPersonDay: 1200, transportCouple: 25520, toolTransport: 29000 },
+  'SAN LUIS POTOSI': { perDiemPersonDay: 850, transportCouple: 5500, toolTransport: 8500 },
+  'TABASCO': { perDiemPersonDay: 950, transportCouple: 11000, toolTransport: 1000 },
+  'TEQUILA': { perDiemPersonDay: 750, transportCouple: 15000, toolTransport: 15000 },
+  'TEZIUTLAN': { perDiemPersonDay: 850, transportCouple: 220, toolTransport: 6000 },
+  'TIJUANA': { perDiemPersonDay: 1100, transportCouple: 18700, toolTransport: 29000 },
+  'TOLUCA': { perDiemPersonDay: 800, transportCouple: 1800, toolTransport: 4000 },
+  'TORREON': { perDiemPersonDay: 1050, transportCouple: 11000, toolTransport: 26000 },
+  'TULUM': { perDiemPersonDay: 1000, transportCouple: 11550, toolTransport: 5500 },
+  'TUXTLA GUTIERREZ': { perDiemPersonDay: 950, transportCouple: 11000, toolTransport: 1000 },
+  'VERACRUZ': { perDiemPersonDay: 1000, transportCouple: 6600, toolTransport: 10000 },
+  'ZACATECAS': { perDiemPersonDay: 900, transportCouple: 15000, toolTransport: 18000 },
+};
+
+// --- DATOS DE COSTOS BASE DE INSTALACIÓN (Costos Originales) ---
+const INSTALLATION_BASE_COSTS: Record<number, { small: number, large: number }> = {
+  2: { small: 33000, large: 35000 },
+  3: { small: 33000, large: 35000 },
+  4: { small: 33000, large: 35000 },
+  5: { small: 35000, large: 37500 },
+  6: { small: 42000, large: 45000 },
+  7: { small: 49000, large: 52500 },
+  8: { small: 56000, large: 60000 },
+  9: { small: 63000, large: 67500 },
+  10: { small: 70000, large: 75000 },
+  11: { small: 77000, large: 82500 },
+  12: { small: 84000, large: 90000 },
+  13: { small: 91000, large: 97500 },
+  14: { small: 98000, large: 105000 },
+  15: { small: 105000, large: 112500 },
+  16: { small: 112000, large: 120000 },
+  17: { small: 119000, large: 127500 },
+  18: { small: 126000, large: 135000 },
+  19: { small: 133000, large: 142500 },
+  20: { small: 140000, large: 150000 },
+  21: { small: 147000, large: 157500 },
+  22: { small: 154000, large: 165000 },
+  23: { small: 161000, large: 172500 },
+  24: { small: 168000, large: 180000 },
+  25: { small: 175000, large: 187500 },
+  26: { small: 182000, large: 195000 },
+  27: { small: 189000, large: 202500 },
+  28: { small: 196000, large: 210000 },
+  29: { small: 203000, large: 217500 },
+  30: { small: 210000, large: 225000 },
+  31: { small: 217000, large: 232500 },
+  32: { small: 224000, large: 240000 },
+  33: { small: 231000, large: 247500 },
+  34: { small: 238000, large: 255000 },
+  35: { small: 245000, large: 262500 },
+};
+
+// --- DATOS DE TIEMPOS DE INSTALACIÓN (Días Naturales) ---
+// Estructura por Rangos: { max: Paradas, tur: DiasTurquia, chi: DiasChina }
+const INSTALLATION_TIME_TABLE = [
+  { max: 5, tur: 5, chi: 10 },
+  { max: 10, tur: 7, chi: 12 },
+  { max: 15, tur: 9, chi: 14 },
+  { max: 20, tur: 11, chi: 16 },
+  { max: 25, tur: 13, chi: 18 },
+  { max: 35, tur: 15, chi: 20 },
+];
 
 const INITIAL_FORM_STATE: QuoteData = {
   id: '',
@@ -475,6 +628,286 @@ const SectionTitle = ({ title, icon: Icon }: any) => (
 );
 
 // --- COMPONENTES DE PÁGINA (Definidos antes de App) ---
+
+function OperationalCostCalculator({ quote, onBack }: { quote?: QuoteData, onBack?: () => void }) {
+  const [origin, setOrigin] = useState('Turquía');
+  const [city, setCity] = useState('CDMX');
+  const [manualLoadCost, setManualLoadCost] = useState(0);
+  
+  // Estado para modo "Standalone" (sin cotización previa)
+  const [localStops, setLocalStops] = useState(quote?.stops || 2);
+  const [localCapacity, setLocalCapacity] = useState(quote?.capacity || 630);
+
+  useEffect(() => {
+    if (quote) {
+        setLocalStops(quote.stops);
+        setLocalCapacity(quote.capacity);
+    }
+  }, [quote]);
+
+  // Cálculos Logística (Descarga)
+  const cityData = CITY_COSTS[city] || { transport: 0, perDiem: 0 };
+  const travelTotal = cityData.transport + cityData.perDiem;
+
+  // Cálculos Montaje (Instalación)
+  const getInstallationData = () => {
+      // Determinar días de instalación basados en Paradas y Origen
+      const stopsKey = Math.max(2, Math.min(35, localStops));
+      const range = INSTALLATION_TIME_TABLE.find(r => stopsKey <= r.max) || INSTALLATION_TIME_TABLE[INSTALLATION_TIME_TABLE.length - 1];
+      const days = origin === 'China' ? range.chi : range.tur;
+
+      // Determinar Costo Base (financiero)
+      const rateRow = INSTALLATION_BASE_COSTS[stopsKey];
+      const baseCost = !rateRow ? 0 : (localCapacity >= 1000 ? rateRow.large : rateRow.small);
+
+      return { days, baseCost };
+  };
+
+  // Cálculos Viáticos Montaje (Nuevos)
+  const getInstallationTravelCosts = (days: number) => {
+      const travelData = INSTALLATION_TRAVEL_DATA[city] || { perDiemPersonDay: 0, transportCouple: 0, toolTransport: 0 };
+      
+      // Viáticos: Costo por día * 2 personas * Días reales
+      const perDiemTotal = travelData.perDiemPersonDay * 2 * days;
+      
+      // Movilización: Transporte Pareja + Traslado Herramienta
+      const transportTotal = travelData.transportCouple + travelData.toolTransport;
+
+      return { perDiemTotal, transportTotal };
+  };
+
+  const installData = getInstallationData();
+  const installTravelCosts = getInstallationTravelCosts(installData.days);
+  
+  const totalInstallationLogistics = installTravelCosts.perDiemTotal + installTravelCosts.transportTotal;
+  const totalOps = manualLoadCost + travelTotal + installData.baseCost + totalInstallationLogistics;
+
+  return (
+    <div className="p-8 animate-fadeIn h-full flex flex-col overflow-auto bg-gray-50">
+      <div className="mb-6 flex justify-between items-center border-b pb-4">
+        <div>
+          <h2 className="text-3xl font-black text-blue-900 flex items-center gap-3">
+            <DollarSign className="text-green-500" size={32} /> Calculadora de Costos Operacionales
+          </h2>
+          <p className="text-gray-500 mt-1">Estimación de gastos logísticos, operativos y de montaje.</p>
+        </div>
+        {onBack && (
+            <button onClick={onBack} className="btn-secondary flex items-center gap-2">
+            <ArrowLeft size={18} /> Volver
+            </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Panel Izquierdo: Configuración */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* Datos del Proyecto (Editable si no hay quote, Solo Lectura si hay quote) */}
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-2">
+              <Clipboard size={18} className="text-blue-600"/> Datos Base del Equipo
+            </h3>
+            {quote ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                    <div><span className="block text-xs font-bold text-gray-400 uppercase">Cliente</span> <span className="font-bold text-gray-700">{quote.clientName || 'N/A'}</span></div>
+                    <div><span className="block text-xs font-bold text-gray-400 uppercase">Proyecto</span> <span className="font-bold text-gray-700">{quote.projectRef || 'N/A'}</span></div>
+                    <div><span className="block text-xs font-bold text-gray-400 uppercase">Modelo</span> <span className="font-bold text-blue-900">{quote.model}</span></div>
+                    <div><span className="block text-xs font-bold text-gray-400 uppercase">Paradas</span> <span className="font-bold text-gray-700">{quote.stops}</span></div>
+                    <div><span className="block text-xs font-bold text-gray-400 uppercase">Capacidad</span> <span className="font-bold text-gray-700">{quote.capacity} kg</span></div>
+                    <div><span className="block text-xs font-bold text-gray-400 uppercase">Velocidad</span> <span className="font-bold text-gray-700">{quote.speed} m/s</span></div>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InputGroup label="Cantidad de Paradas">
+                        <input 
+                            type="number" min="2" max="35" 
+                            className="form-input"
+                            value={localStops}
+                            onChange={(e) => setLocalStops(Number(e.target.value))}
+                        />
+                    </InputGroup>
+                    <InputGroup label="Capacidad (kg)">
+                        <select 
+                            className="form-select"
+                            value={localCapacity}
+                            onChange={(e) => setLocalCapacity(Number(e.target.value))}
+                        >
+                            {CAPACITIES.map(c => <option key={c} value={c}>{c} kg</option>)}
+                        </select>
+                    </InputGroup>
+                    <div className="col-span-2 p-3 bg-blue-50 text-blue-800 text-xs rounded border border-blue-100 flex items-center gap-2">
+                        <Info size={16} /> Modo manual activado: Ajusta paradas y capacidad para calcular montaje.
+                    </div>
+                </div>
+            )}
+          </div>
+
+          {/* Configuración Logística */}
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-2">
+              <Truck size={18} className="text-orange-500"/> Configuración Logística
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <InputGroup label="Origen del Equipo" helpText="País de procedencia del elevador">
+                <div className="relative">
+                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <select 
+                    className="form-select pl-10" 
+                    value={origin} 
+                    onChange={(e) => setOrigin(e.target.value)}
+                  >
+                    <option value="Turquía">Turquía</option>
+                    <option value="China">China</option>
+                  </select>
+                </div>
+              </InputGroup>
+
+              <InputGroup label="Ciudad de Instalación" helpText="Determina costos de viáticos y traslados">
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <select 
+                    className="form-select pl-10" 
+                    value={city} 
+                    onChange={(e) => setCity(e.target.value)}
+                  >
+                    {Object.keys(CITY_COSTS).sort().map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </InputGroup>
+            </div>
+          </div>
+
+          {/* Etapa 1: Descarga en Sitio */}
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-2">
+              <Anchor size={18} className="text-purple-600"/> Etapa 1: Descarga en Sitio
+            </h3>
+            
+            <div className="space-y-6">
+              {/* Actividad 1 */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                <div className="flex-1">
+                  <p className="font-bold text-gray-800">Maniobras de Carga y Descarga</p>
+                  <p className="text-xs text-gray-500">Incluye carga, traslado local y descarga en sitio.</p>
+                </div>
+                <div className="w-48">
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
+                    <input 
+                      type="number" 
+                      className="form-input pl-8 text-right font-bold text-gray-800"
+                      placeholder="0.00"
+                      value={manualLoadCost || ''}
+                      onChange={(e) => setManualLoadCost(parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Actividad 2 (Automática) */}
+              <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100">
+                <div className="flex-1">
+                  <p className="font-bold text-blue-900">Viáticos y Traslados de Personal (Descarga)</p>
+                  <p className="text-xs text-blue-600">Calculado automáticamente según tabulador por ciudad ({city}).</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-black text-xl text-blue-900">${travelTotal.toLocaleString()}</p>
+                  <p className="text-[10px] text-blue-500">Traslado: ${cityData.transport.toLocaleString()} + Viáticos: ${cityData.perDiem.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Etapa 2: Montaje */}
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-2">
+              <Hammer size={18} className="text-indigo-600"/> Etapa 2: Montaje Mecánico y Eléctrico
+            </h3>
+            
+            <div className="space-y-4">
+                {/* Mano de Obra Base */}
+                <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+                    <div className="flex-1">
+                    <p className="font-bold text-indigo-900">Mano de Obra de Instalación (Base)</p>
+                    <p className="text-xs text-indigo-700 mt-1">
+                        Basado en {localStops} paradas y capacidad de {localCapacity} kg.
+                        <br/>
+                        <span className="font-bold">Tiempo estimado ({origin}): {installData.days} días naturales.</span>
+                    </p>
+                    </div>
+                    <div className="text-right">
+                    <p className="font-black text-2xl text-indigo-900">${installData.baseCost.toLocaleString()}</p>
+                    </div>
+                </div>
+
+                {/* Logística de Montaje (Nuevo) */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="flex-1">
+                        <p className="font-bold text-gray-800 flex items-center gap-2"><Briefcase size={16}/> Logística de Cuadrilla (2 Técnicos)</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                            Hospedaje y alimentos por {installData.days} días + Movilización de personal y herramienta.
+                        </p>
+                    </div>
+                    <div className="text-right">
+                        <p className="font-black text-xl text-gray-800">${totalInstallationLogistics.toLocaleString()}</p>
+                        <p className="text-[10px] text-gray-500">Hospedaje/Alim: ${installTravelCosts.perDiemTotal.toLocaleString()}</p>
+                        <p className="text-[10px] text-gray-500">Movilización: ${installTravelCosts.transportTotal.toLocaleString()}</p>
+                    </div>
+                </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Panel Derecho: Resumen de Costos */}
+        <div className="lg:col-span-1">
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-lg sticky top-6">
+            <h3 className="font-black text-xl text-gray-800 mb-6 flex items-center gap-2">
+              Resumen de Costos
+            </h3>
+
+            <div className="space-y-4 mb-6">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Maniobras (Descarga)</span>
+                <span className="font-bold">${manualLoadCost.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Viáticos (Descarga)</span>
+                <span className="font-bold">${travelTotal.toLocaleString()}</span>
+              </div>
+              <div className="border-t border-gray-100 my-2"></div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Mano de Obra (Montaje)</span>
+                <span className="font-bold">${installData.baseCost.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Viáticos (Montaje)</span>
+                <span className="font-bold text-indigo-600">+ ${totalInstallationLogistics.toLocaleString()}</span>
+              </div>
+              <div className="border-t border-gray-200 my-2"></div>
+              <div className="flex justify-between items-end">
+                <span className="font-bold text-gray-800">Total Operacional</span>
+                <span className="font-black text-2xl text-green-600">${totalOps.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div className="p-4 bg-yellow-50 border border-yellow-100 rounded-lg text-xs text-yellow-800 mb-6">
+              <p className="font-bold mb-1 flex items-center gap-1"><AlertCircle size={14}/> Nota:</p>
+              <p>Estos costos son estimados preliminares y no incluyen IVA. Asegúrese de verificar la disponibilidad de equipos de maniobra en la zona.</p>
+            </div>
+
+            <button className="w-full btn-primary justify-center bg-blue-900 hover:bg-blue-800 text-white py-3">
+              <Save size={18} /> Guardar Costos Operativos
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function TrafficAnalyzer({ onQuote }: { onQuote: (data: any) => void }) {
   const [inputs, setInputs] = useState({
@@ -988,7 +1421,7 @@ function QuotePreview({ data, onBack, onUpdateStatus }: { data: QuoteData, onBac
   );
 }
 
-function QuoteWizard({ initialData, onSave, onExit, onUpdate, onViewPreview }: any) {
+function QuoteWizard({ initialData, onSave, onExit, onUpdate, onViewPreview, onOpenOpsCalculator }: any) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<QuoteData>(initialData || INITIAL_FORM_STATE);
   
@@ -1168,6 +1601,36 @@ function QuoteWizard({ initialData, onSave, onExit, onUpdate, onViewPreview }: a
                 </span>
              </div>
 
+             {/* --- NUEVO BLOQUE DE RESUMEN TÉCNICO --- */}
+             <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Info size={14} /> Resumen de Equipo Propuesto
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                    <div className="bg-gray-50 p-2 rounded border border-gray-100">
+                        <span className="block text-gray-500 text-[10px] font-bold uppercase">Modelo</span>
+                        <span className="font-bold text-blue-900">{ELEVATOR_MODELS.find(m => m.id === formData.model)?.label || formData.model}</span>
+                    </div>
+                    <div className="bg-gray-50 p-2 rounded border border-gray-100">
+                        <span className="block text-gray-500 text-[10px] font-bold uppercase">Capacidad</span>
+                        <span className="font-bold text-blue-900">{formData.capacity} kg ({formData.persons} Pers.)</span>
+                    </div>
+                    <div className="bg-gray-50 p-2 rounded border border-gray-100">
+                        <span className="block text-gray-500 text-[10px] font-bold uppercase">Velocidad</span>
+                        <span className="font-bold text-blue-900">{formData.speed} m/s</span>
+                    </div>
+                    <div className="bg-gray-50 p-2 rounded border border-gray-100">
+                        <span className="block text-gray-500 text-[10px] font-bold uppercase">Paradas / Recorrido</span>
+                        <span className="font-bold text-blue-900">{formData.stops} / {(formData.travel / 1000).toFixed(2)} m</span>
+                    </div>
+                    <div className="bg-gray-50 p-2 rounded border border-gray-100">
+                        <span className="block text-gray-500 text-[10px] font-bold uppercase">Cantidad</span>
+                        <span className="font-bold text-blue-900">{formData.quantity} Unidad(es)</span>
+                    </div>
+                </div>
+             </div>
+             {/* --------------------------------------- */}
+
              <div className="flex-1 flex gap-6 overflow-hidden">
                  <div className="flex-1 overflow-auto border rounded-xl bg-white shadow-sm">
                     <table className="w-full text-xs">
@@ -1218,20 +1681,12 @@ function QuoteWizard({ initialData, onSave, onExit, onUpdate, onViewPreview }: a
                               </div>
                            </div>
 
-                           <div>
-                              <label className="text-xs font-bold text-gray-500 mb-1 block">Mano de Obra (Instalación)</label>
-                              <div className="relative">
-                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-                                 <input 
-                                   type="number" 
-                                   placeholder="0.00"
-                                   className="w-full pl-6 pr-3 py-2 border border-gray-300 rounded-lg text-sm font-bold text-right outline-none focus:ring-2 focus:ring-green-500"
-                                   value={formData.installationCost || ''}
-                                   onChange={(e) => handleChange({ target: { name: 'installationCost', value: e.target.value, type: 'number' } })}
-                                 />
-                              </div>
-                              <p className="text-[10px] text-gray-400 mt-1 text-right">Opcional. Solo para referencia interna.</p>
-                           </div>
+                           <button 
+                             onClick={onOpenOpsCalculator}
+                             className="w-full py-3 bg-blue-100 text-blue-800 rounded-lg font-bold shadow-sm hover:bg-blue-200 transition-colors flex items-center justify-center gap-2 text-sm border border-blue-200"
+                           >
+                              <Truck size={18}/> Calculadora de Costos Operativos
+                           </button>
                         </div>
                     </div>
 
@@ -1281,6 +1736,7 @@ function Sidebar({ currentView, setView }: any) {
         <NavButton active={currentView === 'dashboard'} onClick={() => setView('dashboard')} icon={<LayoutDashboard size={18} />} label="Dashboard" />
         <p className="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6">Herramientas</p>
         <NavButton active={currentView === 'traffic-tool'} onClick={() => setView('traffic-tool')} icon={<BarChart2 size={18} />} label="Analizador de Tráfico" />
+        <NavButton active={currentView === 'ops-calculator'} onClick={() => setView('ops-calculator')} icon={<DollarSign size={18} />} label="Calculadora de Costos" />
         <NavButton active={currentView === 'planner'} onClick={() => setView('planner')} icon={<Calendar size={18} />} label="Planificación" />
         <div className="my-4 border-t border-gray-200"></div>
         <button onClick={() => { setView('quoter'); }} className="w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 text-sm font-bold text-blue-900 bg-yellow-400 hover:bg-yellow-300 shadow-md mb-4 group">
@@ -1373,7 +1829,7 @@ function Dashboard({ quotes, onEdit, onDelete, onUpdateStatus }: any) {
 // --- COMPONENTE PRINCIPAL ---
 
 export default function ElevatorQuoter() {
-  const [view, setView] = useState<'dashboard' | 'quoter' | 'traffic-tool' | 'planner' | 'preview'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'quoter' | 'traffic-tool' | 'planner' | 'preview' | 'ops-calculator'>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notification, setNotification] = useState<{msg: string, type: 'success'|'error'} | null>(null);
   const [quotes, setQuotes] = useState<QuoteData[]>([]);
@@ -1462,10 +1918,11 @@ export default function ElevatorQuoter() {
         <Sidebar currentView={view} setView={setView} />
         <main className="flex-1 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden min-h-[600px] relative transition-all print:shadow-none print:border-none print:rounded-none">
           {view === 'dashboard' && <Dashboard quotes={quotes} onEdit={(q:any) => { setWorkingQuote(q); setView('quoter'); }} onDelete={handleDeleteQuote} onCreate={() => { setWorkingQuote(INITIAL_FORM_STATE); setView('quoter'); }} onUpdateStatus={handleUpdateStatus} />}
-          {view === 'quoter' && <QuoteWizard initialData={workingQuote} onUpdate={setWorkingQuote} onSave={handleSaveQuote} onExit={() => setView('dashboard')} onViewPreview={() => setView('preview')} />}
+          {view === 'quoter' && <QuoteWizard initialData={workingQuote} onUpdate={setWorkingQuote} onSave={handleSaveQuote} onExit={() => setView('dashboard')} onViewPreview={() => setView('preview')} onOpenOpsCalculator={() => setView('ops-calculator')} />}
           {view === 'traffic-tool' && <TrafficAnalyzer onQuote={handleTrafficQuote} />}
           {view === 'planner' && <ProjectPlanner currentQuote={workingQuote} />}
           {view === 'preview' && <QuotePreview data={workingQuote} onBack={() => setView('quoter')} onUpdateStatus={handleUpdateStatus} />}
+          {view === 'ops-calculator' && <OperationalCostCalculator quote={workingQuote.id ? workingQuote : undefined} onBack={() => setView('dashboard')} />}
         </main>
       </div>
 
