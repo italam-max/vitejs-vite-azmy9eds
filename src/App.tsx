@@ -6,7 +6,8 @@ import {
   Smartphone, Phone, Mail, Send, X, Shield, Key, Database,
   UserPlus, Globe, Package, WifiOff, Menu, ArrowLeft, BarChart2, TrendingUp,
   Zap, Clock, ShoppingCart, Calendar, Info, RefreshCcw, DollarSign, Printer, Download,
-  Share2, CheckSquare, AlertTriangle, ThumbsUp, ThumbsDown, Truck, MapPin, Anchor, Hammer, Briefcase
+  Share2, CheckSquare, AlertTriangle, ThumbsUp, ThumbsDown, Truck, MapPin, Anchor, Hammer, Briefcase,
+  Server, MessageCircle, Hash, Ruler, HardHat, CheckCircle2, Radar
 } from 'lucide-react';
 
 // --- TIPO DE DATOS & INTERFACES ---
@@ -16,6 +17,7 @@ type ElevatorModelId = 'MR' | 'MRL-L' | 'MRL-G' | 'HYD' | 'PLAT' | 'CAR';
 interface QuoteData {
   id: number | string;
   status: 'Borrador' | 'Sincronizado' | 'Enviada' | 'Por Seguimiento';
+  currentStage?: string; // Nueva propiedad para rastreo
   
   // 1. Contacto & Proyecto
   clientName: string;
@@ -73,6 +75,18 @@ interface QuoteData {
   price?: number; 
 }
 
+interface AppSettings {
+  whapiToken: string;
+  odooUrl: string;
+  odooDb: string;
+  odooUser: string;
+  odooKey: string;
+  zeptoHost: string;
+  zeptoPort: string;
+  zeptoUser: string;
+  zeptoPass: string;
+}
+
 interface ProjectPhase {
   id: string;
   name: string;
@@ -87,16 +101,27 @@ interface ProjectPhase {
   endWeeks?: number;
 }
 
-interface Chat {
-  id: number;
-  name: string;
-  lastMsg: string;
-  time: string;
-  unread: number;
-  history: { sender: 'me' | 'them'; text: string; timestamp: number }[];
-}
-
 // --- CONSTANTES ---
+
+const INITIAL_SETTINGS: AppSettings = {
+  whapiToken: '',
+  odooUrl: 'https://odoo.alam.mx',
+  odooDb: 'alamex_prod',
+  odooUser: '',
+  odooKey: '',
+  zeptoHost: 'smtp.zepto.mail',
+  zeptoPort: '587',
+  zeptoUser: '',
+  zeptoPass: ''
+};
+
+const PROJECT_STAGES = [
+  { id: 'ingenieria', label: 'Ingeniería y Planos', icon: Ruler, color: 'text-blue-600', bg: 'bg-blue-100' },
+  { id: 'fabricacion', label: 'Fabricación', icon: Hammer, color: 'text-orange-600', bg: 'bg-orange-100' },
+  { id: 'embarque', label: 'Embarque y Logística', icon: Truck, color: 'text-purple-600', bg: 'bg-purple-100' },
+  { id: 'instalacion', label: 'Instalación en Sitio', icon: HardHat, color: 'text-yellow-600', bg: 'bg-yellow-100' },
+  { id: 'entrega', label: 'Entrega Final', icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-100' }
+];
 
 const ELEVATOR_MODELS = [
   { id: 'MR', label: 'Con cuarto de máquinas (MR)' },
@@ -130,7 +155,6 @@ const FLOOR_FINISHES = ['Granito', 'PVC', 'Aluminio', 'Metal', '3D Design'];
 const NORMS = ['EN 81-1', 'EN 81-2', 'NOM-053', 'ASME A17.1'];
 const DISPLAYS = ['Display Inteligente', 'Touch', 'LCD Standard', 'Matriz de Puntos'];
 
-// --- DATOS DE COSTOS LOGÍSTICA (DESCARGA) POR CIUDAD ---
 const CITY_COSTS: Record<string, { transport: number; perDiem: number }> = {
   'ACAPULCO': { transport: 22100, perDiem: 15000 },
   'AGUASCALIENTES': { transport: 28900, perDiem: 15000 },
@@ -176,13 +200,12 @@ const CITY_COSTS: Record<string, { transport: number; perDiem: number }> = {
   'TIJUANA': { transport: 169300, perDiem: 35000 },
   'TOLUCA': { transport: 8300, perDiem: 5000 },
   'TORREON': { transport: 57100, perDiem: 15000 },
-  'TULUM': { transport: 86700, perDiem: 35000 },
+  'TULUM': { transport: 1000, transportCouple: 11550, toolTransport: 5500 },
   'TUXTLA GUTIERREZ': { transport: 45100, perDiem: 19950 },
   'VERACRUZ': { transport: 18600, perDiem: 15000 },
   'ZACATECAS': { transport: 39300, perDiem: 15000 },
 };
 
-// --- DATOS DE VIÁTICOS Y TRASLADO PARA MONTAJE ---
 const INSTALLATION_TRAVEL_DATA: Record<string, { perDiemPersonDay: number; transportCouple: number; toolTransport: number }> = {
   'ACAPULCO': { perDiemPersonDay: 850, transportCouple: 5500, toolTransport: 8500 },
   'AGUASCALIENTES': { perDiemPersonDay: 850, transportCouple: 5500, toolTransport: 8500 },
@@ -234,7 +257,6 @@ const INSTALLATION_TRAVEL_DATA: Record<string, { perDiemPersonDay: number; trans
   'ZACATECAS': { perDiemPersonDay: 900, transportCouple: 15000, toolTransport: 18000 },
 };
 
-// --- DATOS DE COSTOS BASE DE INSTALACIÓN (Costos Originales) ---
 const INSTALLATION_BASE_COSTS: Record<number, { small: number, large: number }> = {
   2: { small: 33000, large: 35000 },
   3: { small: 33000, large: 35000 },
@@ -272,8 +294,6 @@ const INSTALLATION_BASE_COSTS: Record<number, { small: number, large: number }> 
   35: { small: 245000, large: 262500 },
 };
 
-// --- DATOS DE TIEMPOS DE INSTALACIÓN (Días Naturales) ---
-// Estructura por Rangos: { max: Paradas, tur: DiasTurquia, chi: DiasChina }
 const INSTALLATION_TIME_TABLE = [
   { max: 5, tur: 5, chi: 10 },
   { max: 10, tur: 7, chi: 12 },
@@ -331,7 +351,7 @@ const INITIAL_FORM_STATE: QuoteData = {
 };
 
 const SEED_QUOTES: QuoteData[] = [
-  { ...INITIAL_FORM_STATE, id: 101, clientName: 'Desarrolladora Vertical', projectRef: 'Torre Reforma - Elev 1', status: 'Sincronizado', quantity: 2, model: 'MRL-G' },
+  { ...INITIAL_FORM_STATE, id: 101, clientName: 'Desarrolladora Vertical', projectRef: 'ALAM-PROY-0001', status: 'Sincronizado', quantity: 2, model: 'MRL-G', currentStage: 'ingenieria' },
 ];
 
 const STANDARD_PHASES: ProjectPhase[] = [
@@ -355,7 +375,7 @@ const generateQuoteDescription = (data: QuoteData) => {
   return `Elevador ${modelLabel} de ${data.capacity} kg / ${data.persons} personas a ${data.speed} m/s. de ${data.stops} niveles, salida ${data.entrances}, acabado de cabina: ${data.cabinFinish} con acabado de Piso ${data.cabinFloor} y puertas de ${data.floorDoorFinish} - ${data.doorWidth} x ${data.doorHeight} de ${data.doorType}.`;
 };
 
-const DB_KEYS = { QUOTES: 'alamex_quotes_v4' };
+const DB_KEYS = { QUOTES: 'alamex_quotes_v4', SETTINGS: 'alamex_settings_v1' };
 
 const BackendService = {
   getQuotes: (): QuoteData[] => {
@@ -385,7 +405,37 @@ const BackendService = {
       return quotes;
     }
     return quotes;
+  },
+  updateQuoteStage: (id: number | string, stage: string) => {
+    const quotes = BackendService.getQuotes();
+    const index = quotes.findIndex(q => q.id === id);
+    if (index >= 0) {
+      quotes[index].currentStage = stage;
+      localStorage.setItem(DB_KEYS.QUOTES, JSON.stringify(quotes));
+      return quotes;
+    }
+    return quotes;
+  },
+  getSettings: (): AppSettings => {
+    const data = localStorage.getItem(DB_KEYS.SETTINGS);
+    return data ? JSON.parse(data) : INITIAL_SETTINGS;
+  },
+  saveSettings: (settings: AppSettings) => {
+    localStorage.setItem(DB_KEYS.SETTINGS, JSON.stringify(settings));
   }
+};
+
+const getNextReference = (quotes: QuoteData[]) => {
+  let maxId = 0;
+  quotes.forEach(q => {
+    const match = q.projectRef.match(/ALAM-PROY-(\d+)/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num > maxId) maxId = num;
+    }
+  });
+  const nextNum = maxId + 1;
+  return `ALAM-PROY-${String(nextNum).padStart(4, '0')}`;
 };
 
 const calculateMaterials = (data: QuoteData) => {
@@ -594,7 +644,7 @@ const calculateTrafficAnalysis = (inputs: any) => {
   return { population: totalPopulation, standard, excellent };
 };
 
-// --- COMPONENTES UI (Definidos antes de ser usados) ---
+// --- COMPONENTES UI ---
 
 const StatCard = ({ label, value, color, icon: Icon }: any) => (
   <div className={`p-4 rounded-xl border border-transparent ${color} bg-opacity-10 flex items-center justify-between`}>
@@ -627,14 +677,152 @@ const SectionTitle = ({ title, icon: Icon }: any) => (
   </h3>
 );
 
-// --- COMPONENTES DE PÁGINA (Definidos antes de App) ---
+// --- COMPONENTES DE PÁGINA (Pre-declarados para evitar ReferenceError) ---
+
+function ProjectTracker({ quote, onUpdate, onBack }: { quote: QuoteData, onUpdate: (q: QuoteData) => void, onBack: () => void }) {
+  const [activeStageId, setActiveStageId] = useState(quote.currentStage || 'ingenieria');
+  const [showNotifyModal, setShowNotifyModal] = useState(false);
+  const [pendingStage, setPendingStage] = useState<string | null>(null);
+
+  const currentStageIndex = PROJECT_STAGES.findIndex(s => s.id === activeStageId);
+
+  const handleStageClick = (stageId: string) => {
+    const newIndex = PROJECT_STAGES.findIndex(s => s.id === stageId);
+    if (stageId !== activeStageId) {
+       setPendingStage(stageId);
+       setShowNotifyModal(true);
+    }
+  };
+
+  const confirmStageChange = (notify: boolean) => {
+    if (pendingStage) {
+      setActiveStageId(pendingStage);
+      onUpdate({ ...quote, currentStage: pendingStage });
+      
+      if (notify) {
+        const stageLabel = PROJECT_STAGES.find(s => s.id === pendingStage)?.label;
+        const msg = `Estimado ${quote.clientName}, nos complace informarle que su proyecto ${quote.projectRef} ha avanzado a la etapa de: *${stageLabel}*. \n\nSeguimos trabajando para usted.\n\nAtte. Alamex Elevadores`;
+        window.open(`https://wa.me/${quote.clientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+      }
+    }
+    setShowNotifyModal(false);
+    setPendingStage(null);
+  };
+
+  return (
+    <div className="p-8 animate-fadeIn h-full flex flex-col overflow-auto bg-gray-50">
+      <div className="mb-6 flex justify-between items-center border-b pb-4">
+        <div>
+          <h2 className="text-3xl font-black text-blue-900 flex items-center gap-3">
+            <Radar className="text-green-500" size={32} /> Rastreo y Seguimiento
+          </h2>
+          <p className="text-gray-500 mt-1">Monitoreo de etapas del proyecto: <span className="font-bold text-gray-800">{quote.projectRef}</span></p>
+        </div>
+        <button onClick={onBack} className="btn-secondary flex items-center gap-2">
+          <ArrowLeft size={18} /> Volver
+        </button>
+      </div>
+
+      <div className="max-w-4xl mx-auto w-full">
+        <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 mb-8 relative overflow-hidden">
+          <div className="absolute top-14 left-0 w-full h-1 bg-gray-100 -z-10"></div>
+          <div 
+            className="absolute top-14 left-0 h-1 bg-blue-500 transition-all duration-700 -z-10"
+            style={{ width: `${(currentStageIndex / (PROJECT_STAGES.length - 1)) * 100}%` }}
+          ></div>
+
+          <div className="relative flex justify-between items-start z-10">
+            {PROJECT_STAGES.map((stage, idx) => {
+              const isActive = idx <= currentStageIndex;
+              const isCurrent = idx === currentStageIndex;
+              const Icon = stage.icon;
+
+              return (
+                <div key={stage.id} className="flex flex-col items-center group cursor-pointer w-20" onClick={() => handleStageClick(stage.id)}>
+                   <div className={`w-12 h-12 rounded-full flex items-center justify-center border-4 transition-all duration-300 ${isActive ? `${stage.bg} ${stage.color} border-white shadow-md` : 'bg-white text-gray-300 border-gray-200'} ${isCurrent ? 'ring-4 ring-blue-100 scale-125' : ''}`}>
+                      <Icon size={20} />
+                   </div>
+                   <div className={`mt-4 text-center transition-colors ${isActive ? 'text-gray-800' : 'text-gray-300'}`}>
+                      <p className="text-[10px] font-bold uppercase tracking-wider mb-1">Fase {idx + 1}</p>
+                      <p className={`text-xs font-bold leading-tight ${isCurrent ? 'text-blue-600' : ''}`}>{stage.label}</p>
+                   </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+              <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <Info size={18} className="text-blue-500"/> Estado Actual
+              </h3>
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 mb-4">
+                 <p className="text-xs font-bold text-blue-400 uppercase mb-1">Etapa Activa</p>
+                 <p className="text-2xl font-black text-blue-900">{PROJECT_STAGES[currentStageIndex].label}</p>
+              </div>
+              <p className="text-sm text-gray-600 leading-relaxed">
+                 El proyecto se encuentra en esta fase. Asegúrese de completar todos los hitos requeridos antes de avanzar a la siguiente etapa.
+              </p>
+           </div>
+
+           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-center items-center text-center">
+              <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
+                 <MessageCircle size={32} />
+              </div>
+              <h4 className="font-bold text-gray-800 mb-2">Comunicación con Cliente</h4>
+              <p className="text-xs text-gray-500 mb-4">Notificar estatus actual por WhatsApp.</p>
+              <button 
+                onClick={() => {
+                    const stageLabel = PROJECT_STAGES[currentStageIndex].label;
+                    const msg = `Hola ${quote.clientName}, te informamos que tu proyecto ${quote.projectRef} sigue en la etapa de: *${stageLabel}*. Cualquier duda estamos a tus órdenes.`;
+                    window.open(`https://wa.me/${quote.clientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                }}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors shadow-md flex items-center gap-2"
+              >
+                 <Share2 size={16} /> Enviar Recordatorio
+              </button>
+           </div>
+        </div>
+      </div>
+
+      {showNotifyModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowNotifyModal(false)}>
+           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="bg-blue-600 p-6 text-center">
+                 <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 backdrop-blur-md">
+                    <TrendingUp className="text-white" size={24} />
+                 </div>
+                 <h3 className="text-xl font-black text-white">Actualización de Etapa</h3>
+                 <p className="text-blue-100 text-sm mt-1">El proyecto cambia de estado.</p>
+              </div>
+              <div className="p-8">
+                 <p className="text-gray-700 font-medium text-center mb-6">
+                    Vas a mover el proyecto a la etapa: <br/>
+                    <strong className="text-lg text-blue-900">{PROJECT_STAGES.find(s => s.id === pendingStage)?.label}</strong>
+                    <br/><br/>
+                    ¿Deseas notificar al cliente de este cambio?
+                 </p>
+                 <div className="flex gap-3">
+                    <button onClick={() => confirmStageChange(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-50 rounded-xl transition-colors border border-gray-200">
+                       No notificar
+                    </button>
+                    <button onClick={() => confirmStageChange(true)} className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg hover:bg-green-700 transition-transform transform hover:scale-105 flex items-center justify-center gap-2">
+                       <MessageCircle size={18} /> Sí, Notificar
+                    </button>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function OperationalCostCalculator({ quote, onBack }: { quote?: QuoteData, onBack?: () => void }) {
   const [origin, setOrigin] = useState('Turquía');
   const [city, setCity] = useState('CDMX');
   const [manualLoadCost, setManualLoadCost] = useState(0);
-  
-  // Estado para modo "Standalone" (sin cotización previa)
   const [localStops, setLocalStops] = useState(quote?.stops || 2);
   const [localCapacity, setLocalCapacity] = useState(quote?.capacity || 630);
 
@@ -645,40 +833,29 @@ function OperationalCostCalculator({ quote, onBack }: { quote?: QuoteData, onBac
     }
   }, [quote]);
 
-  // Cálculos Logística (Descarga)
   const cityData = CITY_COSTS[city] || { transport: 0, perDiem: 0 };
   const travelTotal = cityData.transport + cityData.perDiem;
 
-  // Cálculos Montaje (Instalación)
   const getInstallationData = () => {
-      // Determinar días de instalación basados en Paradas y Origen
       const stopsKey = Math.max(2, Math.min(35, localStops));
       const range = INSTALLATION_TIME_TABLE.find(r => stopsKey <= r.max) || INSTALLATION_TIME_TABLE[INSTALLATION_TIME_TABLE.length - 1];
       const days = origin === 'China' ? range.chi : range.tur;
 
-      // Determinar Costo Base (financiero)
       const rateRow = INSTALLATION_BASE_COSTS[stopsKey];
       const baseCost = !rateRow ? 0 : (localCapacity >= 1000 ? rateRow.large : rateRow.small);
 
       return { days, baseCost };
   };
 
-  // Cálculos Viáticos Montaje (Nuevos)
   const getInstallationTravelCosts = (days: number) => {
       const travelData = INSTALLATION_TRAVEL_DATA[city] || { perDiemPersonDay: 0, transportCouple: 0, toolTransport: 0 };
-      
-      // Viáticos: Costo por día * 2 personas * Días reales
       const perDiemTotal = travelData.perDiemPersonDay * 2 * days;
-      
-      // Movilización: Transporte Pareja + Traslado Herramienta
       const transportTotal = travelData.transportCouple + travelData.toolTransport;
-
       return { perDiemTotal, transportTotal };
   };
 
   const installData = getInstallationData();
   const installTravelCosts = getInstallationTravelCosts(installData.days);
-  
   const totalInstallationLogistics = installTravelCosts.perDiemTotal + installTravelCosts.transportTotal;
   const totalOps = manualLoadCost + travelTotal + installData.baseCost + totalInstallationLogistics;
 
@@ -697,12 +874,8 @@ function OperationalCostCalculator({ quote, onBack }: { quote?: QuoteData, onBac
             </button>
         )}
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Panel Izquierdo: Configuración */}
         <div className="lg:col-span-2 space-y-6">
-          
-          {/* Datos del Proyecto (Editable si no hay quote, Solo Lectura si hay quote) */}
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-2">
               <Clipboard size={18} className="text-blue-600"/> Datos Base del Equipo
@@ -719,19 +892,10 @@ function OperationalCostCalculator({ quote, onBack }: { quote?: QuoteData, onBac
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <InputGroup label="Cantidad de Paradas">
-                        <input 
-                            type="number" min="2" max="35" 
-                            className="form-input"
-                            value={localStops}
-                            onChange={(e) => setLocalStops(Number(e.target.value))}
-                        />
+                        <input type="number" min="2" max="35" className="form-input" value={localStops} onChange={(e) => setLocalStops(Number(e.target.value))} />
                     </InputGroup>
                     <InputGroup label="Capacidad (kg)">
-                        <select 
-                            className="form-select"
-                            value={localCapacity}
-                            onChange={(e) => setLocalCapacity(Number(e.target.value))}
-                        >
+                        <select className="form-select" value={localCapacity} onChange={(e) => setLocalCapacity(Number(e.target.value))}>
                             {CAPACITIES.map(c => <option key={c} value={c}>{c} kg</option>)}
                         </select>
                     </InputGroup>
@@ -741,53 +905,35 @@ function OperationalCostCalculator({ quote, onBack }: { quote?: QuoteData, onBac
                 </div>
             )}
           </div>
-
-          {/* Configuración Logística */}
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-2">
               <Truck size={18} className="text-orange-500"/> Configuración Logística
             </h3>
-            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <InputGroup label="Origen del Equipo" helpText="País de procedencia del elevador">
                 <div className="relative">
                   <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <select 
-                    className="form-select pl-10" 
-                    value={origin} 
-                    onChange={(e) => setOrigin(e.target.value)}
-                  >
+                  <select className="form-select pl-10" value={origin} onChange={(e) => setOrigin(e.target.value)}>
                     <option value="Turquía">Turquía</option>
                     <option value="China">China</option>
                   </select>
                 </div>
               </InputGroup>
-
               <InputGroup label="Ciudad de Instalación" helpText="Determina costos de viáticos y traslados">
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <select 
-                    className="form-select pl-10" 
-                    value={city} 
-                    onChange={(e) => setCity(e.target.value)}
-                  >
-                    {Object.keys(CITY_COSTS).sort().map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
+                  <select className="form-select pl-10" value={city} onChange={(e) => setCity(e.target.value)}>
+                    {Object.keys(CITY_COSTS).sort().map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </InputGroup>
             </div>
           </div>
-
-          {/* Etapa 1: Descarga en Sitio */}
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-2">
               <Anchor size={18} className="text-purple-600"/> Etapa 1: Descarga en Sitio
             </h3>
-            
             <div className="space-y-6">
-              {/* Actividad 1 */}
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
                 <div className="flex-1">
                   <p className="font-bold text-gray-800">Maniobras de Carga y Descarga</p>
@@ -796,18 +942,10 @@ function OperationalCostCalculator({ quote, onBack }: { quote?: QuoteData, onBac
                 <div className="w-48">
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
-                    <input 
-                      type="number" 
-                      className="form-input pl-8 text-right font-bold text-gray-800"
-                      placeholder="0.00"
-                      value={manualLoadCost || ''}
-                      onChange={(e) => setManualLoadCost(parseFloat(e.target.value) || 0)}
-                    />
+                    <input type="number" className="form-input pl-8 text-right font-bold text-gray-800" placeholder="0.00" value={manualLoadCost || ''} onChange={(e) => setManualLoadCost(parseFloat(e.target.value) || 0)} />
                   </div>
                 </div>
               </div>
-
-              {/* Actividad 2 (Automática) */}
               <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100">
                 <div className="flex-1">
                   <p className="font-bold text-blue-900">Viáticos y Traslados de Personal (Descarga)</p>
@@ -820,15 +958,11 @@ function OperationalCostCalculator({ quote, onBack }: { quote?: QuoteData, onBac
               </div>
             </div>
           </div>
-
-          {/* Etapa 2: Montaje */}
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-2">
               <Hammer size={18} className="text-indigo-600"/> Etapa 2: Montaje Mecánico y Eléctrico
             </h3>
-            
             <div className="space-y-4">
-                {/* Mano de Obra Base */}
                 <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-lg border border-indigo-100">
                     <div className="flex-1">
                     <p className="font-bold text-indigo-900">Mano de Obra de Instalación (Base)</p>
@@ -842,8 +976,6 @@ function OperationalCostCalculator({ quote, onBack }: { quote?: QuoteData, onBac
                     <p className="font-black text-2xl text-indigo-900">${installData.baseCost.toLocaleString()}</p>
                     </div>
                 </div>
-
-                {/* Logística de Montaje (Nuevo) */}
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
                     <div className="flex-1">
                         <p className="font-bold text-gray-800 flex items-center gap-2"><Briefcase size={16}/> Logística de Cuadrilla (2 Técnicos)</p>
@@ -859,16 +991,10 @@ function OperationalCostCalculator({ quote, onBack }: { quote?: QuoteData, onBac
                 </div>
             </div>
           </div>
-
         </div>
-
-        {/* Panel Derecho: Resumen de Costos */}
         <div className="lg:col-span-1">
           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-lg sticky top-6">
-            <h3 className="font-black text-xl text-gray-800 mb-6 flex items-center gap-2">
-              Resumen de Costos
-            </h3>
-
+            <h3 className="font-black text-xl text-gray-800 mb-6 flex items-center gap-2">Resumen de Costos</h3>
             <div className="space-y-4 mb-6">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Maniobras (Descarga)</span>
@@ -893,12 +1019,10 @@ function OperationalCostCalculator({ quote, onBack }: { quote?: QuoteData, onBac
                 <span className="font-black text-2xl text-green-600">${totalOps.toLocaleString()}</span>
               </div>
             </div>
-
             <div className="p-4 bg-yellow-50 border border-yellow-100 rounded-lg text-xs text-yellow-800 mb-6">
               <p className="font-bold mb-1 flex items-center gap-1"><AlertCircle size={14}/> Nota:</p>
               <p>Estos costos son estimados preliminares y no incluyen IVA. Asegúrese de verificar la disponibilidad de equipos de maniobra en la zona.</p>
             </div>
-
             <button className="w-full btn-primary justify-center bg-blue-900 hover:bg-blue-800 text-white py-3">
               <Save size={18} /> Guardar Costos Operativos
             </button>
@@ -1000,7 +1124,6 @@ function TrafficAnalyzer({ onQuote }: { onQuote: (data: any) => void }) {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 {/* OPCIÓN ESTÁNDAR */}
                  <div className="bg-white rounded-xl shadow-lg border-t-4 border-orange-400 overflow-hidden flex flex-col relative">
                     <div className="p-6 bg-orange-50 border-b border-orange-100">
                        <h4 className="text-lg font-black text-orange-800 flex items-center gap-2"><AlertTriangle size={20}/> NIVEL ESTÁNDAR</h4>
@@ -1043,7 +1166,6 @@ function TrafficAnalyzer({ onQuote }: { onQuote: (data: any) => void }) {
                     </div>
                  </div>
 
-                 {/* OPCIÓN EXCELENTE */}
                  <div className="bg-white rounded-xl shadow-lg border-t-4 border-green-500 overflow-hidden flex flex-col transform scale-105 z-10 ring-4 ring-green-50 relative">
                     <div className="absolute top-0 right-0 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg shadow-sm">RECOMENDADO</div>
                     <div className="p-6 bg-green-50 border-b border-green-100">
@@ -1728,25 +1850,6 @@ function QuoteWizard({ initialData, onSave, onExit, onUpdate, onViewPreview, onO
   );
 }
 
-function Sidebar({ currentView, setView }: any) {
-  return (
-    <aside className="hidden lg:block w-64 flex-shrink-0 space-y-6 print:hidden">
-      <nav className="space-y-2">
-        <p className="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Menú Principal</p>
-        <NavButton active={currentView === 'dashboard'} onClick={() => setView('dashboard')} icon={<LayoutDashboard size={18} />} label="Dashboard" />
-        <p className="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6">Herramientas</p>
-        <NavButton active={currentView === 'traffic-tool'} onClick={() => setView('traffic-tool')} icon={<BarChart2 size={18} />} label="Analizador de Tráfico" />
-        <NavButton active={currentView === 'ops-calculator'} onClick={() => setView('ops-calculator')} icon={<DollarSign size={18} />} label="Calculadora de Costos" />
-        <NavButton active={currentView === 'planner'} onClick={() => setView('planner')} icon={<Calendar size={18} />} label="Planificación" />
-        <div className="my-4 border-t border-gray-200"></div>
-        <button onClick={() => { setView('quoter'); }} className="w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 text-sm font-bold text-blue-900 bg-yellow-400 hover:bg-yellow-300 shadow-md mb-4 group">
-          <Plus size={20} className="group-hover:rotate-90 transition-transform"/> Nueva Cotización
-        </button>
-      </nav>
-    </aside>
-  );
-}
-
 function NavButton({ active, onClick, icon, label }: any) {
   return (
     <button onClick={onClick} className={`w-full text-left px-4 py-3 text-sm rounded-lg flex items-center gap-3 font-bold transition-all ${active ? 'bg-blue-50 text-blue-900 border border-blue-100 shadow-sm translate-x-1' : 'text-gray-500 hover:text-blue-900 hover:bg-gray-50'}`}>
@@ -1755,7 +1858,47 @@ function NavButton({ active, onClick, icon, label }: any) {
   );
 }
 
-function Dashboard({ quotes, onEdit, onDelete, onUpdateStatus }: any) {
+function Sidebar({ currentView, setView, onNewQuote, quotes, onSelectQuote }: any) {
+  const recentQuotes = useMemo(() => {
+    return quotes.slice(0, 5); 
+  }, [quotes]);
+
+  return (
+    <aside className="hidden lg:flex flex-col w-64 flex-shrink-0 space-y-6 print:hidden h-full">
+      <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
+        <p className="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Menú Principal</p>
+        <NavButton active={currentView === 'dashboard'} onClick={() => setView('dashboard')} icon={<LayoutDashboard size={18} />} label="Dashboard" />
+        
+        <div className="my-4 border-t border-gray-200"></div>
+        
+        <button onClick={onNewQuote} className="w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 text-sm font-bold text-blue-900 bg-yellow-400 hover:bg-yellow-300 shadow-md mb-2 group transition-all">
+          <Plus size={20} className="group-hover:rotate-90 transition-transform"/> Nueva Cotización
+        </button>
+
+        <div className="space-y-1 mb-6">
+            <p className="px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 mt-2">Activas / Recientes</p>
+            {recentQuotes.map((q: QuoteData) => (
+                <button 
+                    key={q.id}
+                    onClick={() => onSelectQuote(q)}
+                    className="w-full text-left px-4 py-2 text-xs rounded-md flex items-center gap-2 text-gray-600 hover:bg-white hover:text-blue-800 hover:shadow-sm transition-all border border-transparent hover:border-gray-200 truncate"
+                >
+                    <FileText size={14} className="flex-shrink-0 text-blue-400" /> 
+                    <span className="truncate">{q.projectRef || 'Sin Referencia'}</span>
+                </button>
+            ))}
+        </div>
+
+        <p className="px-4 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 mt-6">Herramientas</p>
+        <NavButton active={currentView === 'traffic-tool'} onClick={() => setView('traffic-tool')} icon={<BarChart2 size={18} />} label="Analizador de Tráfico" />
+        <NavButton active={currentView === 'ops-calculator'} onClick={() => setView('ops-calculator')} icon={<DollarSign size={18} />} label="Calculadora de Costos" />
+        <NavButton active={currentView === 'planner'} onClick={() => setView('planner')} icon={<Calendar size={18} />} label="Planificación" />
+      </nav>
+    </aside>
+  );
+}
+
+function Dashboard({ quotes, onEdit, onDelete, onUpdateStatus, onTrack, onCreate }: any) {
   const [filter, setFilter] = useState('');
   const filtered = useMemo(() => quotes.filter((q: QuoteData) => q.clientName.toLowerCase().includes(filter.toLowerCase()) || q.projectRef.toLowerCase().includes(filter.toLowerCase())), [quotes, filter]);
 
@@ -1810,6 +1953,11 @@ function Dashboard({ quotes, onEdit, onDelete, onUpdateStatus }: any) {
                   </td>
                   <td className="px-6 py-4 text-right flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity items-center">
                     <div className="flex gap-1 mr-2">
+                        {quote.status !== 'Borrador' && (
+                            <button onClick={() => onTrack && onTrack(quote)} title="Rastrear Pedido" className="p-1.5 text-purple-600 hover:bg-purple-100 rounded animate-pulse">
+                                <Radar size={16} />
+                            </button>
+                        )}
                         <button onClick={() => onUpdateStatus(quote.id, 'Enviada')} title="Marcar Enviada" className="p-1.5 text-green-600 hover:bg-green-100 rounded"><CheckSquare size={16} /></button>
                         <button onClick={() => onUpdateStatus(quote.id, 'Por Seguimiento')} title="Marcar Seguimiento" className="p-1.5 text-orange-500 hover:bg-orange-100 rounded"><Clock size={16} /></button>
                     </div>
@@ -1826,10 +1974,122 @@ function Dashboard({ quotes, onEdit, onDelete, onUpdateStatus }: any) {
   );
 }
 
+function SettingsModal({ isOpen, onClose, onSave }: { isOpen: boolean, onClose: () => void, onSave: (s: AppSettings) => void }) {
+  const [activeTab, setActiveTab] = useState<'integrations' | 'erp' | 'smtp' | 'system'>('integrations');
+  const [settings, setSettings] = useState<AppSettings>(BackendService.getSettings());
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSettings({ ...settings, [e.target.name]: e.target.value });
+  };
+
+  const handleSave = () => {
+    BackendService.saveSettings(settings);
+    onSave(settings);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:hidden" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2"><Settings className="text-yellow-500"/> Configuración del Sistema</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={24}/></button>
+        </div>
+        
+        <div className="flex border-b border-gray-100">
+          <button onClick={() => setActiveTab('integrations')} className={`flex-1 py-3 text-sm font-bold text-center border-b-2 transition-colors ${activeTab === 'integrations' ? 'border-blue-600 text-blue-900 bg-blue-50' : 'border-transparent text-gray-500 hover:text-blue-600'}`}>Integraciones</button>
+          <button onClick={() => setActiveTab('erp')} className={`flex-1 py-3 text-sm font-bold text-center border-b-2 transition-colors ${activeTab === 'erp' ? 'border-blue-600 text-blue-900 bg-blue-50' : 'border-transparent text-gray-500 hover:text-blue-600'}`}>ERP (Odoo)</button>
+          <button onClick={() => setActiveTab('smtp')} className={`flex-1 py-3 text-sm font-bold text-center border-b-2 transition-colors ${activeTab === 'smtp' ? 'border-blue-600 text-blue-900 bg-blue-50' : 'border-transparent text-gray-500 hover:text-blue-600'}`}>SMTP (Zepto)</button>
+          <button onClick={() => setActiveTab('system')} className={`flex-1 py-3 text-sm font-bold text-center border-b-2 transition-colors ${activeTab === 'system' ? 'border-blue-600 text-blue-900 bg-blue-50' : 'border-transparent text-gray-500 hover:text-blue-600'}`}>Sistema</button>
+        </div>
+
+        <div className="p-6 overflow-y-auto">
+          {activeTab === 'integrations' && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="bg-green-50 p-4 rounded-lg border border-green-100 mb-4">
+                <h4 className="font-bold text-green-800 flex items-center gap-2 mb-2"><MessageCircle size={18}/> WhatsApp API (Whapi)</h4>
+                <p className="text-xs text-green-700 mb-4">Configura el token de Whapi.cloud para habilitar el envío de cotizaciones por WhatsApp.</p>
+                <InputGroup label="API Token (Whapi)">
+                  <input type="password" name="whapiToken" value={settings.whapiToken} onChange={handleChange} className="form-input" placeholder="whapi_..." />
+                </InputGroup>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'erp' && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="bg-purple-50 p-4 rounded-lg border border-purple-100 mb-4">
+                <h4 className="font-bold text-purple-800 flex items-center gap-2 mb-2"><Database size={18}/> Conexión Odoo ERP</h4>
+                <p className="text-xs text-purple-700 mb-4">Credenciales para sincronizar clientes y proyectos con Odoo vía XML-RPC.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <InputGroup label="URL Servidor">
+                    <input name="odooUrl" value={settings.odooUrl} onChange={handleChange} className="form-input" placeholder="https://odoo.midominio.com" />
+                  </InputGroup>
+                  <InputGroup label="Base de Datos">
+                    <input name="odooDb" value={settings.odooDb} onChange={handleChange} className="form-input" />
+                  </InputGroup>
+                  <InputGroup label="Usuario (Email)">
+                    <input name="odooUser" value={settings.odooUser} onChange={handleChange} className="form-input" />
+                  </InputGroup>
+                  <InputGroup label="API Key / Contraseña">
+                    <input type="password" name="odooKey" value={settings.odooKey} onChange={handleChange} className="form-input" />
+                  </InputGroup>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'smtp' && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="bg-orange-50 p-4 rounded-lg border border-orange-100 mb-4">
+                <h4 className="font-bold text-orange-800 flex items-center gap-2 mb-2"><Mail size={18}/> SMTP (ZeptoMail)</h4>
+                <p className="text-xs text-orange-700 mb-4">Configuración para envío transaccional de correos.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <InputGroup label="Host SMTP">
+                    <input name="zeptoHost" value={settings.zeptoHost} onChange={handleChange} className="form-input" placeholder="smtp.zepto.mail" />
+                  </InputGroup>
+                  <InputGroup label="Puerto">
+                    <input name="zeptoPort" value={settings.zeptoPort} onChange={handleChange} className="form-input" placeholder="587" />
+                  </InputGroup>
+                  <InputGroup label="Usuario SMTP">
+                    <input name="zeptoUser" value={settings.zeptoUser} onChange={handleChange} className="form-input" />
+                  </InputGroup>
+                  <InputGroup label="Contraseña SMTP">
+                    <input type="password" name="zeptoPass" value={settings.zeptoPass} onChange={handleChange} className="form-input" />
+                  </InputGroup>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'system' && (
+            <div className="space-y-4 animate-fadeIn">
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <h4 className="font-bold text-gray-800 mb-2">Mantenimiento de Datos</h4>
+                    <p className="text-sm text-gray-600 mb-4">Acciones destructivas para limpiar la caché local de la aplicación.</p>
+                    <button className="w-full p-3 bg-red-100 text-red-700 rounded text-left hover:bg-red-200 font-bold text-sm flex items-center gap-2 transition-colors" onClick={() => { if(confirm('¿Estás seguro? Se borrarán todas las cotizaciones locales.')) { localStorage.clear(); window.location.reload(); } }}>
+                        <Trash2 size={16}/> Resetear Todos los Datos Locales
+                    </button>
+                </div>
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+            <button onClick={onClose} className="btn-secondary">Cancelar</button>
+            <button onClick={handleSave} className="btn-primary">Guardar Cambios</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- COMPONENTE PRINCIPAL ---
 
 export default function ElevatorQuoter() {
-  const [view, setView] = useState<'dashboard' | 'quoter' | 'traffic-tool' | 'planner' | 'preview' | 'ops-calculator'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'quoter' | 'traffic-tool' | 'planner' | 'preview' | 'ops-calculator' | 'tracker'>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notification, setNotification] = useState<{msg: string, type: 'success'|'error'} | null>(null);
   const [quotes, setQuotes] = useState<QuoteData[]>([]);
@@ -1869,6 +2129,29 @@ export default function ElevatorQuoter() {
     showNotify(`Estatus actualizado a: ${status}`);
   };
 
+  const handleUpdateStage = (quote: QuoteData) => {
+    BackendService.saveQuote(quote); // Save full quote including stage
+    setQuotes(BackendService.getQuotes());
+    setWorkingQuote(quote);
+    showNotify(`Etapa actualizada a: ${quote.currentStage}`);
+  }
+
+  const handleCreateNewQuote = () => {
+      // 1. Generar Referencia Automática
+      const newRef = getNextReference(quotes);
+      
+      // 2. Crear estado inicial
+      const newQuote: QuoteData = {
+          ...INITIAL_FORM_STATE,
+          projectRef: newRef,
+          projectDate: new Date().toISOString().split('T')[0]
+      };
+
+      setWorkingQuote(newQuote);
+      setView('quoter');
+      showNotify(`Nueva cotización iniciada: ${newRef}`);
+  };
+
   const handleTrafficQuote = (data: any) => {
     const quoteData: QuoteData = {
       ...INITIAL_FORM_STATE,
@@ -1879,7 +2162,7 @@ export default function ElevatorQuoter() {
       travel: data.travelMeters * 1000,
       persons: data.persons,
       doorWidth: Number(data.doorType) || 800,
-      projectRef: `Análisis ${data.type}`,
+      projectRef: `Análisis ${data.type}`, // Podríamos usar getNextReference aquí también si se desea
       model: data.speed > 2.5 ? 'MR' : 'MRL-G',
       controlGroup: data.elevators > 1 ? (data.elevators === 2 ? 'Duplex' : `Grupo ${data.elevators}`) : 'Simplex',
     };
@@ -1887,6 +2170,11 @@ export default function ElevatorQuoter() {
     setView('quoter');
     showNotify('Datos importados al cotizador');
   };
+
+  const handleTrackQuote = (quote: QuoteData) => {
+    setWorkingQuote(quote);
+    setView('tracker');
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-slate-800 relative">
@@ -1915,26 +2203,29 @@ export default function ElevatorQuoter() {
       )}
 
       <div className="flex-1 flex max-w-7xl w-full mx-auto md:p-6 gap-6 print:p-0 print:w-full print:max-w-none">
-        <Sidebar currentView={view} setView={setView} />
+        <Sidebar 
+            currentView={view} 
+            setView={setView} 
+            onNewQuote={handleCreateNewQuote}
+            quotes={quotes}
+            onSelectQuote={(q: QuoteData) => { setWorkingQuote(q); setView('quoter'); }}
+        />
         <main className="flex-1 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden min-h-[600px] relative transition-all print:shadow-none print:border-none print:rounded-none">
-          {view === 'dashboard' && <Dashboard quotes={quotes} onEdit={(q:any) => { setWorkingQuote(q); setView('quoter'); }} onDelete={handleDeleteQuote} onCreate={() => { setWorkingQuote(INITIAL_FORM_STATE); setView('quoter'); }} onUpdateStatus={handleUpdateStatus} />}
+          {view === 'dashboard' && <Dashboard quotes={quotes} onEdit={(q:any) => { setWorkingQuote(q); setView('quoter'); }} onDelete={handleDeleteQuote} onCreate={handleCreateNewQuote} onUpdateStatus={handleUpdateStatus} onTrack={handleTrackQuote} />}
           {view === 'quoter' && <QuoteWizard initialData={workingQuote} onUpdate={setWorkingQuote} onSave={handleSaveQuote} onExit={() => setView('dashboard')} onViewPreview={() => setView('preview')} onOpenOpsCalculator={() => setView('ops-calculator')} />}
           {view === 'traffic-tool' && <TrafficAnalyzer onQuote={handleTrafficQuote} />}
           {view === 'planner' && <ProjectPlanner currentQuote={workingQuote} />}
           {view === 'preview' && <QuotePreview data={workingQuote} onBack={() => setView('quoter')} onUpdateStatus={handleUpdateStatus} />}
           {view === 'ops-calculator' && <OperationalCostCalculator quote={workingQuote.id ? workingQuote : undefined} onBack={() => setView('dashboard')} />}
+          {view === 'tracker' && <ProjectTracker quote={workingQuote} onUpdate={handleUpdateStage} onBack={() => setView('dashboard')} />}
         </main>
       </div>
 
-      {settingsOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:hidden" onClick={() => setSettingsOpen(false)}>
-          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
-            <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Settings className="text-blue-900"/> Configuración</h3>
-            <p className="text-gray-600 mb-4">Panel de administración simulado.</p>
-            <button className="w-full p-3 bg-red-50 text-red-600 rounded text-left hover:bg-red-100 font-medium" onClick={() => { localStorage.clear(); window.location.reload(); }}>Resetear Datos</button>
-          </div>
-        </div>
-      )}
+      <SettingsModal 
+        isOpen={settingsOpen} 
+        onClose={() => setSettingsOpen(false)} 
+        onSave={(s) => showNotify('Configuración guardada')} 
+      />
     </div>
   );
 }
