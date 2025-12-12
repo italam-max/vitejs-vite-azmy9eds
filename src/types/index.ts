@@ -1,0 +1,90 @@
+// ARCHIVO: src/types/index.ts
+
+export type ElevatorModelId = 'MR' | 'MRL-L' | 'MRL-G' | 'HYD' | 'PLAT' | 'CAR';
+
+export interface QuoteData {
+  id: number | string;
+  status: 'Borrador' | 'Sincronizado' | 'Enviada' | 'Por Seguimiento';
+  currentStage?: string;
+  
+  // 1. Contacto & Proyecto
+  clientName: string;
+  clientPhone: string;
+  clientEmail: string;
+  projectRef: string;
+  projectDate: string;
+  
+  // 2. Especificaciones Básicas
+  quantity: number;
+  model: ElevatorModelId;
+  controlGroup: string;
+  capacity: number;
+  persons: number;
+  speed: string;
+  stops: number;
+  travel: number;
+  overhead: number;
+  pit: number;
+  traction: string;
+  
+  // 3. Cubo & Entradas
+  entrances: string;
+  shaftWidth: number;
+  shaftDepth: number;
+  shaftType: string;
+  shaftConstructionReq: string;
+  
+  // 4. Puertas
+  doorType: string;
+  doorWidth: number;
+  doorHeight: number;
+  floorDoorFinish: string;
+  
+  // 5. Cabina & Acabados
+  cabinModel: string;
+  cabinFinish: string;
+  cabinFloor: string;
+  handrailType: string;
+  lopModel: string;
+  copModel: string;
+  floorNomenclature: string;
+  
+  // 6. Normas & Seguridad
+  norm: string;
+  fireResistance: string;
+  cwGovernor: string;
+  installationReq: string;
+
+  // 7. Costos
+  installationCost?: number;
+
+  // Campos calculados
+  materials?: any; 
+  price?: number; 
+}
+
+export interface AppSettings {
+  whapiToken: string;
+  odooUrl: string;
+  odooDb: string;
+  odooUser: string;
+  odooKey: string;
+  zeptoHost: string;
+  zeptoPort: string;
+  zeptoUser: string;
+  zeptoPass: string;
+}
+
+export interface ProjectPhase {
+  id: string;
+  name: string;
+  baseDuration: number;
+  color: string;
+  isVariable?: boolean;
+  duration?: number;
+  finalDuration?: number;
+  startStr?: string;
+  endStr?: string;
+  startWeeks?: number;
+  endWeeks?: number;
+}
